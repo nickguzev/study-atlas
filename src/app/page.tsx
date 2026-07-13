@@ -69,6 +69,11 @@ function formatMoney(amount: number, currency: string): string {
   return `${symbol}${amount.toLocaleString('ru-RU')}`;
 }
 
+function clampPct(v: number | undefined | null): number {
+  if (v === undefined || v === null || isNaN(v)) return 0;
+  return Math.max(0, Math.min(100, v));
+}
+
 function formatBudgetRange(uni: University): string {
   const symbol = uni.budget_currency === 'USD' ? '$' : '€';
   return `${symbol}${uni.budget_min.toLocaleString('ru-RU')}–${uni.budget_max.toLocaleString('ru-RU')}`;
@@ -77,7 +82,7 @@ function formatBudgetRange(uni: University): string {
 export default function Home() {
   const [english, setEnglish] = useState('6.5');
   const [gpa, setGpa] = useState('4.5');
-  const [budget, setBudget] = useState(100000);
+  const [budget, setBudget] = useState(120000);
   const [country, setCountry] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [noFoundation, setNoFoundation] = useState(false);
@@ -181,7 +186,7 @@ export default function Home() {
     setSearchTerm('');
     setNoFoundation(false);
     setLowVisaRisk(false);
-    setBudget(100000);
+    setBudget(120000);
   };
 
   const visibleList = filtered.slice(0, visibleCount);
@@ -265,13 +270,15 @@ export default function Home() {
                 >
                   Без Foundation
                 </button>
-                <button
-                  className={`filter-toggle ${lowVisaRisk ? 'active' : ''}`}
-                  onClick={() => setLowVisaRisk(!lowVisaRisk)}
-                  title={`Страны с исторически низким уровнем отказов в студенческой визе для граждан РФ: ${LOW_VISA_RISK_COUNTRIES.join(', ')}`}
-                >
-                  Низкий визовый риск ⓘ
-                </button>
+                <span className="filter-with-tip">
+                  <button
+                    className={`filter-toggle ${lowVisaRisk ? 'active' : ''}`}
+                    onClick={() => setLowVisaRisk(!lowVisaRisk)}
+                  >
+                    Низкий визовый риск
+                  </button>
+                  <InfoTip text={`Страны с исторически низким уровнем отказов в студенческой визе для граждан РФ: ${LOW_VISA_RISK_COUNTRIES.join(', ')}. Список ориентировочный и может меняться.`} />
+                </span>
               </div>
 
               <div className="filters-row">
@@ -280,7 +287,7 @@ export default function Home() {
                   <input
                     type="range"
                     min="2000"
-                    max="100000"
+                    max="120000"
                     step="1000"
                     value={budget}
                     onChange={(e) => setBudget(Number(e.target.value))}
@@ -304,12 +311,7 @@ export default function Home() {
                   <option value="ielts">По IELTS</option>
                   <option value="name">По названию</option>
                 </select>
-                <span
-                  className="score-info-icon"
-                  title="Оценка складывается из академической репутации, стоимости обучения, карьерных перспектив, локации, доступности поступления и уровня английского. Это ориентир для сравнения, а не официальный рейтинг."
-                >
-                  ⓘ
-                </span>
+                <InfoTip text="Оценка складывается из академической репутации, стоимости обучения, карьерных перспектив, локации, доступности поступления и уровня английского. Это ориентир для сравнения, а не официальный рейтинг." />
               </label>
               <div className="view-toggle">
                 <button className={viewMode === 'cards' ? 'active' : ''} onClick={() => setViewMode('cards')}>▦ Карточки</button>
@@ -390,6 +392,38 @@ export default function Home() {
   );
 }
 
+function InfoTip({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutsideClick = () => setOpen(false);
+    document.addEventListener('click', closeOnOutsideClick);
+    return () => document.removeEventListener('click', closeOnOutsideClick);
+  }, [open]);
+
+  return (
+    <span className="info-tip-wrap">
+      <button
+        type="button"
+        className="info-tip-icon"
+        aria-label="Пояснение"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+      >
+        ⓘ
+      </button>
+      {open && (
+        <span className="info-tip-bubble" onClick={(e) => e.stopPropagation()}>
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function UniCard({
   uni,
   inShortlist,
@@ -417,19 +451,19 @@ function UniCard({
       {uni.scoreBreakdown && (
         <div className="score-breakdown">
           <div className="breakdown-item">
-            <span>Академия</span>
-            <div className="bar"><div style={{ width: `${uni.scoreBreakdown.academics}%` }}></div></div>
-            <span>{uni.scoreBreakdown.academics}</span>
+            <span>Учёба</span>
+            <div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.academics)}%` }}></div></div>
+            <span>{clampPct(uni.scoreBreakdown.academics)}</span>
           </div>
           <div className="breakdown-item">
             <span>Карьера</span>
-            <div className="bar"><div style={{ width: `${uni.scoreBreakdown.career}%` }}></div></div>
-            <span>{uni.scoreBreakdown.career}</span>
+            <div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.career)}%` }}></div></div>
+            <span>{clampPct(uni.scoreBreakdown.career)}</span>
           </div>
           <div className="breakdown-item">
             <span>Бюджет</span>
-            <div className="bar"><div style={{ width: `${uni.scoreBreakdown.affordability}%` }}></div></div>
-            <span>{uni.scoreBreakdown.affordability}</span>
+            <div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.affordability)}%` }}></div></div>
+            <span>{clampPct(uni.scoreBreakdown.affordability)}</span>
           </div>
         </div>
       )}
@@ -441,9 +475,12 @@ function UniCard({
         </div>
         <div>
           <span>IELTS мин</span>
-          <span title={uni.ielts === null ? 'Единого требования нет либо не публикуется вузом — уточняйте индивидуально' : undefined}>
-            {uni.ielts ?? '— ⓘ'}
-          </span>
+          {uni.ielts ?? (
+            <span className="stat-with-tip">
+              нет данных
+              <InfoTip text="Единого требования нет либо вуз не публикует эту позицию — уточняйте индивидуально в приёмной комиссии." />
+            </span>
+          )}
         </div>
         <div>
           <span>Foundation</span>
@@ -451,9 +488,12 @@ function UniCard({
         </div>
         <div>
           <span>QS</span>
-          <span title={uni.qs === null ? 'Вуз не входит в общий рейтинг QS или не публикует эту позицию (типично для liberal arts колледжей и бизнес-школ)' : undefined}>
-            {uni.qs ? `≈${uni.qs}` : 'нет данных ⓘ'}
-          </span>
+          {uni.qs ? `≈${uni.qs}` : (
+            <span className="stat-with-tip">
+              нет данных
+              <InfoTip text="Вуз не входит в общий рейтинг QS или не публикует эту позицию — типично для liberal arts колледжей и небольших бизнес-школ." />
+            </span>
+          )}
         </div>
       </div>
 
@@ -616,12 +656,12 @@ function DetailModal({
           <div className="modal-section">
             <h3>Из чего складывается оценка</h3>
             <div className="score-breakdown">
-              <div className="breakdown-item"><span>Академия</span><div className="bar"><div style={{ width: `${uni.scoreBreakdown.academics}%` }}></div></div><span>{uni.scoreBreakdown.academics}</span></div>
-              <div className="breakdown-item"><span>Английский</span><div className="bar"><div style={{ width: `${uni.scoreBreakdown.english}%` }}></div></div><span>{uni.scoreBreakdown.english}</span></div>
-              <div className="breakdown-item"><span>Бюджет</span><div className="bar"><div style={{ width: `${uni.scoreBreakdown.affordability}%` }}></div></div><span>{uni.scoreBreakdown.affordability}</span></div>
-              <div className="breakdown-item"><span>Локация</span><div className="bar"><div style={{ width: `${uni.scoreBreakdown.location}%` }}></div></div><span>{uni.scoreBreakdown.location}</span></div>
-              <div className="breakdown-item"><span>Карьера</span><div className="bar"><div style={{ width: `${uni.scoreBreakdown.career}%` }}></div></div><span>{uni.scoreBreakdown.career}</span></div>
-              <div className="breakdown-item"><span>Доступность</span><div className="bar"><div style={{ width: `${uni.scoreBreakdown.accessibility}%` }}></div></div><span>{uni.scoreBreakdown.accessibility}</span></div>
+              <div className="breakdown-item"><span>Учёба</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.academics)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.academics)}</span></div>
+              <div className="breakdown-item"><span>Английский</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.english)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.english)}</span></div>
+              <div className="breakdown-item"><span>Бюджет</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.affordability)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.affordability)}</span></div>
+              <div className="breakdown-item"><span>Локация</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.location)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.location)}</span></div>
+              <div className="breakdown-item"><span>Карьера</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.career)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.career)}</span></div>
+              <div className="breakdown-item"><span>Доступность</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.accessibility)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.accessibility)}</span></div>
             </div>
           </div>
         )}

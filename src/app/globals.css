@@ -877,3 +877,69 @@ body {
     padding: 20px;
   }
 }
+
+/* InfoTip — tap-friendly tooltip (title attribute doesn't work on mobile) */
+.info-tip-wrap {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.info-tip-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: 13px;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.info-tip-icon:hover,
+.info-tip-icon:active {
+  color: #007bff;
+}
+
+.info-tip-bubble {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 10px 12px;
+  border-radius: 6px;
+  width: 240px;
+  z-index: 50;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.info-tip-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1a1a1a;
+}
+
+.filter-with-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.stat-with-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+@media (max-width: 400px) {
+  .info-tip-bubble {
+    width: 200px;
+  }
+}
