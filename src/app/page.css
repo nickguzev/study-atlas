@@ -1,0 +1,15 @@
+/* Page-specific styles */
+
+input[type="range"] {
+  width: 200px;
+  height: 4px;
+  cursor: pointer;
+}
+
+select {
+  cursor: pointer;
+}
+
+button {
+  font-family: inherit;
+}

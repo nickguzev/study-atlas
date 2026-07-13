@@ -1,0 +1,297 @@
+[
+  {
+    "id": 58,
+    "name": "Amherst College",
+    "country": "США",
+    "city": "Амхерст",
+    "program": "BA Economics",
+    "budget_min": 98800,
+    "budget_max": 112800,
+    "budget_currency": "EUR",
+    "ielts": 7.0,
+    "foundation": false,
+    "qs": null,
+    "assessment": 55,
+    "dot": "red",
+    "chance": "Низкий",
+    "scoreBreakdown": {
+      "academics": 75,
+      "english": 100,
+      "affordability": 60,
+      "location": 70,
+      "career": 75,
+      "accessibility": 85
+    },
+    "career": {
+      "avgGraduateSalary": 55000,
+      "avgSalaryAt10Years": 79750,
+      "topEmployers": [
+        "Major corporations in region"
+      ],
+      "careerTracks": [
+        {
+          "title": "Management Consulting",
+          "avgSalary": 74250
+        },
+        {
+          "title": "Finance/Banking",
+          "avgSalary": 79750
+        },
+        {
+          "title": "Tech/Product",
+          "avgSalary": 77000
+        }
+      ]
+    },
+    "roi": {
+      "totalCost": 238050,
+      "careerEarnings10Years": 605000,
+      "breakEvenYears": 4.3,
+      "roiPercent": 154
+    },
+    "whyApply": [
+      "Specialized BA Economics"
+    ],
+    "cons": [
+      "High tuition cost — requires careful financial planning",
+      "Higher English requirement — demanding preparation"
+    ],
+    "lastUpdated": "2026-07-13"
+  },
+  {
+    "id": 59,
+    "name": "Bowdoin College",
+    "country": "США",
+    "city": "Брансуик",
+    "program": "Economics",
+    "budget_min": 98800,
+    "budget_max": 114800,
+    "budget_currency": "EUR",
+    "ielts": 7.0,
+    "foundation": false,
+    "qs": null,
+    "assessment": 54,
+    "dot": "red",
+    "chance": "Низкий",
+    "scoreBreakdown": {
+      "academics": 75,
+      "english": 100,
+      "affordability": 60,
+      "location": 70,
+      "career": 75,
+      "accessibility": 85
+    },
+    "career": {
+      "avgGraduateSalary": 55000,
+      "avgSalaryAt10Years": 79750,
+      "topEmployers": [
+        "Major corporations in region"
+      ],
+      "careerTracks": [
+        {
+          "title": "Management Consulting",
+          "avgSalary": 74250
+        },
+        {
+          "title": "Finance/Banking",
+          "avgSalary": 79750
+        },
+        {
+          "title": "Tech/Product",
+          "avgSalary": 77000
+        }
+      ]
+    },
+    "roi": {
+      "totalCost": 240300,
+      "careerEarnings10Years": 605000,
+      "breakEvenYears": 4.4,
+      "roiPercent": 151
+    },
+    "whyApply": [
+      "Specialized Economics"
+    ],
+    "cons": [
+      "High tuition cost — requires careful financial planning",
+      "Higher English requirement — demanding preparation"
+    ],
+    "lastUpdated": "2026-07-13"
+  },
+  {
+    "id": 60,
+    "name": "Washington and Lee University",
+    "country": "США",
+    "city": "Лексингтон",
+    "program": "Business Administration",
+    "budget_min": 94800,
+    "budget_max": 108800,
+    "budget_currency": "EUR",
+    "ielts": 7.0,
+    "foundation": false,
+    "qs": null,
+    "assessment": 54,
+    "dot": "red",
+    "chance": "Низкий",
+    "scoreBreakdown": {
+      "academics": 75,
+      "english": 100,
+      "affordability": 60,
+      "location": 70,
+      "career": 75,
+      "accessibility": 85
+    },
+    "career": {
+      "avgGraduateSalary": 55000,
+      "avgSalaryAt10Years": 79750,
+      "topEmployers": [
+        "Major corporations in region"
+      ],
+      "careerTracks": [
+        {
+          "title": "Management Consulting",
+          "avgSalary": 74250
+        },
+        {
+          "title": "Finance/Banking",
+          "avgSalary": 79750
+        },
+        {
+          "title": "Tech/Product",
+          "avgSalary": 77000
+        }
+      ]
+    },
+    "roi": {
+      "totalCost": 229050,
+      "careerEarnings10Years": 605000,
+      "breakEvenYears": 4.2,
+      "roiPercent": 164
+    },
+    "whyApply": [
+      "Specialized Business Administration"
+    ],
+    "cons": [
+      "High tuition cost — requires careful financial planning",
+      "Higher English requirement — demanding preparation"
+    ],
+    "lastUpdated": "2026-07-13"
+  },
+  {
+    "id": 61,
+    "name": "Yale University",
+    "country": "США",
+    "city": "Нью-Хейвен",
+    "program": "Economics",
+    "budget_min": 96800,
+    "budget_max": 114800,
+    "budget_currency": "EUR",
+    "ielts": 7.0,
+    "foundation": false,
+    "qs": 15,
+    "assessment": 48,
+    "dot": "red",
+    "chance": "Низкий",
+    "scoreBreakdown": {
+      "academics": 100,
+      "english": 100,
+      "affordability": 60,
+      "location": 70,
+      "career": 75,
+      "accessibility": 85
+    },
+    "career": {
+      "avgGraduateSalary": 55000,
+      "avgSalaryAt10Years": 79750,
+      "topEmployers": [
+        "Major corporations in region"
+      ],
+      "careerTracks": [
+        {
+          "title": "Management Consulting",
+          "avgSalary": 74250
+        },
+        {
+          "title": "Finance/Banking",
+          "avgSalary": 79750
+        },
+        {
+          "title": "Tech/Product",
+          "avgSalary": 77000
+        }
+      ]
+    },
+    "roi": {
+      "totalCost": 238050,
+      "careerEarnings10Years": 605000,
+      "breakEvenYears": 4.3,
+      "roiPercent": 154
+    },
+    "whyApply": [
+      "Strong QS ranking — excellent for career prospects"
+    ],
+    "cons": [
+      "High tuition cost — requires careful financial planning",
+      "Higher English requirement — demanding preparation"
+    ],
+    "lastUpdated": "2026-07-13"
+  },
+  {
+    "id": 62,
+    "name": "Princeton University",
+    "country": "США",
+    "city": "Принстон",
+    "program": "Economics",
+    "budget_min": 94800,
+    "budget_max": 108800,
+    "budget_currency": "EUR",
+    "ielts": 7.0,
+    "foundation": false,
+    "qs": 20,
+    "assessment": 48,
+    "dot": "red",
+    "chance": "Низкий",
+    "scoreBreakdown": {
+      "academics": 100,
+      "english": 100,
+      "affordability": 60,
+      "location": 70,
+      "career": 75,
+      "accessibility": 85
+    },
+    "career": {
+      "avgGraduateSalary": 55000,
+      "avgSalaryAt10Years": 79750,
+      "topEmployers": [
+        "Major corporations in region"
+      ],
+      "careerTracks": [
+        {
+          "title": "Management Consulting",
+          "avgSalary": 74250
+        },
+        {
+          "title": "Finance/Banking",
+          "avgSalary": 79750
+        },
+        {
+          "title": "Tech/Product",
+          "avgSalary": 77000
+        }
+      ]
+    },
+    "roi": {
+      "totalCost": 229050,
+      "careerEarnings10Years": 605000,
+      "breakEvenYears": 4.2,
+      "roiPercent": 164
+    },
+    "whyApply": [
+      "Strong QS ranking — excellent for career prospects"
+    ],
+    "cons": [
+      "High tuition cost — requires careful financial planning",
+      "Higher English requirement — demanding preparation"
+    ],
+    "lastUpdated": "2026-07-13"
+  }
+]
