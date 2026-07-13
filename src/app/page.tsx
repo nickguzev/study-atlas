@@ -294,6 +294,8 @@ export default function Home() {
   const [favoritesLoaded, setFavoritesLoaded] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
+  const [showRankings, setShowRankings] = useState(false);
 
   const profile: Profile = useMemo(() => {
     const gpaOpt = GPA_OPTIONS.find((g) => g.key === gpaKey) || GPA_OPTIONS[1];
@@ -324,9 +326,9 @@ export default function Home() {
   }, [country, noFoundation, lowVisaRisk, searchTerm, budget, sortBy]);
 
   useEffect(() => {
-    document.body.style.overflow = (detailUni || showGuide) ? 'hidden' : '';
+    document.body.style.overflow = (detailUni || showGuide || showWizard || showRankings || showCompare) ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [detailUni, showGuide]);
+  }, [detailUni, showGuide, showWizard, showRankings, showCompare]);
 
   const filtered = useMemo(() => {
     const result = (universities as University[]).filter((uni) => {
@@ -420,6 +422,8 @@ export default function Home() {
           <nav className="nav">
             <button className={viewMode !== 'shortlist' ? 'active' : ''} onClick={() => setViewMode('cards')}>Матрица</button>
             <button className={viewMode === 'shortlist' ? 'active' : ''} onClick={() => setViewMode('shortlist')}>Мой список ({shortlist.length})</button>
+            <button onClick={() => setShowWizard(true)}>Мастер подбора</button>
+            <button onClick={() => setShowRankings(true)}>Рейтинги</button>
             <button onClick={() => setShowGuide(true)}>Справочник</button>
           </nav>
         </div>
@@ -438,6 +442,9 @@ export default function Home() {
             </div>
 
             <div className="profile-bar-wrap">
+              <div className="profile-bar-title">
+                📋 Ваш профиль абитуриента <span className="profile-bar-title-note">— это не фильтр, вузы из списка не пропадают. Профиль только пересчитывает персональный «Шанс поступления» на каждой карточке.</span>
+              </div>
               <div className="profile-bar-row">
                 <strong>Английский:</strong>
                 <button className={`chip ${englishKey === '6.0' ? 'active' : ''}`} onClick={() => setEnglishKey('6.0')}>IELTS ~6.0</button>
@@ -465,11 +472,6 @@ export default function Home() {
                 ))}
               </div>
 
-              <div className="profile-bar-row">
-                <span className="profile-bar-hint">
-                  Английский, успеваемость и доп. факторы пересчитывают персональный «Шанс поступления» на каждой карточке в реальном времени.
-                </span>
-              </div>
             </div>
 
             <div className="filters">
@@ -534,7 +536,7 @@ export default function Home() {
                   <option value="ielts">По IELTS</option>
                   <option value="name">По названию</option>
                 </select>
-                <InfoTip text="«Оценка вуза» — общий балл (академика, бюджет, карьера, локация). «Шанс поступления» — персональный расчёт по вашему IELTS, успеваемости и доп. факторам. Оба — ориентир для сравнения, не официальный рейтинг." />
+                <InfoTip text="«Оценка вуза» = академика 30% + бюджет 25% + карьера 25% + локация 10% + английский 10%. «Шанс поступления» — персональный расчёт по вашему IELTS, успеваемости и доп. факторам. Оба — ориентир для сравнения, не официальный рейтинг." />
               </div>
               <div className="view-toggle">
                 <button className={viewMode === 'cards' ? 'active' : ''} onClick={() => setViewMode('cards')}>▦ Карточки</button>
@@ -622,6 +624,30 @@ export default function Home() {
       )}
 
       {showGuide && <GuideModal onClose={() => setShowGuide(false)} />}
+
+      {showWizard && (
+        <WizardModal
+          countries={countries}
+          onClose={() => setShowWizard(false)}
+          onApply={(w) => {
+            setCountry(w.country);
+            setBudget(w.budget);
+            setEnglishKey(w.englishKey);
+            setGpaKey(w.gpaKey);
+            setSortBy(w.sortBy);
+            setViewMode('cards');
+            setShowWizard(false);
+          }}
+        />
+      )}
+
+      {showRankings && (
+        <RankingsModal
+          universities={universities as University[]}
+          onClose={() => setShowRankings(false)}
+          onSelectUni={(u) => { setShowRankings(false); setDetailUni(u); }}
+        />
+      )}
 
       {showCompare && (
         <CompareModal
@@ -871,7 +897,10 @@ function ShortlistView({
     <div className="shortlist-view">
       <div className="shortlist-header">
         <h2>Мой список ({list.length})</h2>
-        <button className="btn" onClick={onBack}>← К матрице</button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="btn" onClick={() => downloadCsv(list, profile)}>⬇ Экспорт в Excel (CSV)</button>
+          <button className="btn" onClick={onBack}>← К матрице</button>
+        </div>
       </div>
 
       <div className="compare-picker-hint">
@@ -963,6 +992,10 @@ function CompareModal({
       <div className="modal-content compare-modal" onClick={(e) => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose} aria-label="Закрыть">✕</button>
         <h2 className="modal-title">Сравнение вузов</h2>
+        <div className="compare-actions">
+          <button className="btn tiny" onClick={() => downloadCsv(universities, profile)}>⬇ Excel (CSV)</button>
+          <button className="btn tiny" onClick={() => window.print()}>🖨 Печать / PDF</button>
+        </div>
         <div className="compare-table-wrap">
           <table className="compare-table">
             <thead>
@@ -986,6 +1019,193 @@ function CompareModal({
   );
 }
 
+function csvEscape(v: string | number): string {
+  const s = String(v);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function downloadCsv(universities: University[], profile: Profile) {
+  const header = ['Вуз', 'Страна', 'Город', 'Программа', 'Оценка вуза', 'Шанс поступления', 'Бюджет мин', 'Бюджет макс', 'Валюта', 'IELTS мин', 'Foundation', 'QS'];
+  const lines = [header.map(csvEscape).join(',')];
+  universities.forEach((u) => {
+    const chance = computeChance(u, profile);
+    lines.push([
+      u.name, u.country, u.city, u.program, u.assessment, `${chance.label} (${chance.score})`,
+      u.budget_min, u.budget_max, u.budget_currency, u.ielts ?? '', u.foundation ? 'Да' : 'Нет', u.qs ?? '',
+    ].map(csvEscape).join(','));
+  });
+  const csvContent = '\uFEFF' + lines.join('\r\n'); // BOM for Excel Cyrillic support
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'study-atlas-sravnenie.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+interface WizardAnswers {
+  country: string;
+  budget: number;
+  englishKey: string;
+  gpaKey: string;
+  sortBy: string;
+}
+
+function WizardModal({
+  countries,
+  onClose,
+  onApply,
+}: {
+  countries: string[];
+  onClose: () => void;
+  onApply: (answers: WizardAnswers) => void;
+}) {
+  const [step, setStep] = useState(0);
+  const [country, setCountry] = useState('');
+  const [budget, setBudget] = useState(30000);
+  const [englishKey, setEnglishKey] = useState('6.5');
+  const [gpaKey, setGpaKey] = useState('4.5');
+  const [priority, setPriority] = useState('score');
+
+  const steps = [
+    {
+      title: 'Есть предпочтение по стране?',
+      body: (
+        <div className="wizard-options">
+          <button className={`wizard-option ${country === '' ? 'active' : ''}`} onClick={() => setCountry('')}>Не важно — покажи все страны</button>
+          {countries.map((c) => (
+            <button key={c} className={`wizard-option ${country === c ? 'active' : ''}`} onClick={() => setCountry(c)}>{c}</button>
+          ))}
+        </div>
+      ),
+    },
+    {
+      title: 'Какой бюджет на обучение в год комфортен?',
+      body: (
+        <div className="wizard-options">
+          {[10000, 20000, 30000, 50000, 80000, 120000].map((b) => (
+            <button key={b} className={`wizard-option ${budget === b ? 'active' : ''}`} onClick={() => setBudget(b)}>
+              до €{b.toLocaleString('ru-RU')}/год
+            </button>
+          ))}
+        </div>
+      ),
+    },
+    {
+      title: 'Какой у вас (ориентировочно) уровень английского?',
+      body: (
+        <div className="wizard-options">
+          <button className={`wizard-option ${englishKey === '6.0' ? 'active' : ''}`} onClick={() => setEnglishKey('6.0')}>IELTS ~6.0</button>
+          <button className={`wizard-option ${englishKey === '6.5' ? 'active' : ''}`} onClick={() => setEnglishKey('6.5')}>IELTS ~6.5</button>
+          <button className={`wizard-option ${englishKey === '7.0' ? 'active' : ''}`} onClick={() => setEnglishKey('7.0')}>IELTS 7.0+</button>
+        </div>
+      ),
+    },
+    {
+      title: 'Средний балл аттестата?',
+      body: (
+        <div className="wizard-options">
+          {GPA_OPTIONS.map((g) => (
+            <button key={g.key} className={`wizard-option ${gpaKey === g.key ? 'active' : ''}`} onClick={() => setGpaKey(g.key)}>{g.label}</button>
+          ))}
+        </div>
+      ),
+    },
+    {
+      title: 'Что важнее при выборе вуза?',
+      body: (
+        <div className="wizard-options">
+          <button className={`wizard-option ${priority === 'score' ? 'active' : ''}`} onClick={() => setPriority('score')}>Общая репутация и качество вуза</button>
+          <button className={`wizard-option ${priority === 'chance' ? 'active' : ''}`} onClick={() => setPriority('chance')}>Максимальный шанс поступления</button>
+          <button className={`wizard-option ${priority === 'budget_asc' ? 'active' : ''}`} onClick={() => setPriority('budget_asc')}>Минимальный бюджет</button>
+        </div>
+      ),
+    },
+  ];
+
+  const isLast = step === steps.length - 1;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose} aria-label="Закрыть">✕</button>
+        <h2 className="modal-title">Мастер подбора</h2>
+        <div className="wizard-progress">Шаг {step + 1} из {steps.length}</div>
+        <h3 style={{ marginTop: '14px', marginBottom: '12px' }}>{steps[step].title}</h3>
+        {steps[step].body}
+        <div className="wizard-nav">
+          <button className="btn" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>← Назад</button>
+          {!isLast && <button className="btn" onClick={() => setStep((s) => s + 1)}>Далее →</button>}
+          {isLast && (
+            <button
+              className="btn"
+              onClick={() => onApply({ country, budget, englishKey, gpaKey, sortBy: priority })}
+            >
+              Показать подборку
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RankingsModal({
+  universities,
+  onClose,
+  onSelectUni,
+}: {
+  universities: University[];
+  onClose: () => void;
+  onSelectUni: (u: University) => void;
+}) {
+  const topScore = [...universities].sort((a, b) => b.assessment - a.assessment).slice(0, 5);
+  const topRoi = [...universities].filter((u) => u.roi).sort((a, b) => (b.roi!.roiPercent) - (a.roi!.roiPercent)).slice(0, 5);
+  const cheapest = [...universities].sort((a, b) => {
+    const aEur = a.budget_currency === 'USD' ? a.budget_min * 0.92 : a.budget_min;
+    const bEur = b.budget_currency === 'USD' ? b.budget_min * 0.92 : b.budget_min;
+    return aEur - bEur;
+  }).slice(0, 5);
+  const topSalary = [...universities].filter((u) => u.career).sort((a, b) => (b.career!.avgSalaryAt10Years) - (a.career!.avgSalaryAt10Years)).slice(0, 5);
+
+  const Section = ({ title, list, render }: { title: string; list: University[]; render: (u: University) => React.ReactNode }) => (
+    <div className="modal-section">
+      <h3>{title}</h3>
+      <div className="similar-list">
+        {list.map((u, i) => (
+          <button key={u.id} className="similar-item" onClick={() => onSelectUni(u)}>
+            <span className="similar-name">{i + 1}. {u.name}</span>
+            <span className="similar-meta">{render(u)}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose} aria-label="Закрыть">✕</button>
+        <h2 className="modal-title">Тематические рейтинги</h2>
+        <p className="modal-disclaimer" style={{ marginBottom: '8px' }}>
+          Рейтинги строятся по данным текущей базы (67 вузов), не являются официальными списками.
+        </p>
+
+        <Section title="🏆 Топ-5 по оценке вуза" list={topScore} render={(u) => `${u.assessment}/100 · ${u.country}`} />
+        <Section title="💰 Топ-5 по ROI" list={topRoi} render={(u) => `+${u.roi!.roiPercent}% · окупаемость ${u.roi!.breakEvenYears} года`} />
+        <Section title="💵 Топ-5 самых доступных по бюджету" list={cheapest} render={(u) => formatBudgetRange(u)} />
+        <Section title="📈 Топ-5 по зарплате выпускника через 10 лет" list={topSalary} render={(u) => `${formatMoney(u.career!.avgSalaryAt10Years, u.budget_currency)}/год`} />
+      </div>
+    </div>
+  );
+}
+
 function GuideModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -995,7 +1215,7 @@ function GuideModal({ onClose }: { onClose: () => void }) {
 
         <div className="modal-section">
           <h3>Как читать карточку вуза</h3>
-          <p><strong>Оценка вуза (X/100)</strong> — общий балл: академическая репутация, бюджет, карьерные перспективы, локация и доступность поступления. Не является официальным рейтингом — это ориентир для сравнения между вузами в базе.</p>
+          <p><strong>Оценка вуза (X/100)</strong> — прозрачная взвешенная сумма: академическая репутация 30%, бюджет 25%, карьерные перспективы 25%, локация 10%, уровень английского 10%. Не является официальным рейтингом — ориентир для сравнения вузов внутри базы. Компонент «доступность поступления» в текущих данных не различается по вузам (колеблется в узком диапазоне независимо от реальной селективности), поэтому исключён из формулы и из отображаемой разбивки, пока не появятся более точные данные.</p>
           <p><strong>Шанс поступления при вашем профиле</strong> — персональный расчёт: сравнивает ваш IELTS, успеваемость и отмеченные доп. факторы с требованиями и селективностью вуза. Пересчитывается сразу при изменении профиля вверху страницы.</p>
         </div>
 
@@ -1088,8 +1308,11 @@ function DetailModal({
               <div className="breakdown-item"><span>Бюджет</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.affordability)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.affordability)}</span></div>
               <div className="breakdown-item"><span>Локация</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.location)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.location)}</span></div>
               <div className="breakdown-item"><span>Карьера</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.career)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.career)}</span></div>
-              <div className="breakdown-item"><span>Доступность</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.accessibility)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.accessibility)}</span></div>
             </div>
+            <p className="modal-disclaimer">
+              Формула: академика 30% + бюджет 25% + карьера 25% + локация 10% + английский 10%.
+              Компонент «доступность поступления» исключён из расчёта — в текущих данных он не различается по вузам и не несёт полезного сигнала.
+            </p>
           </div>
         )}
 
