@@ -16,6 +16,7 @@ interface ScoreBreakdown {
   location: number;
   career: number;
   accessibility: number;
+  academicsDataMissing?: boolean;
 }
 
 interface CareerTrack {
@@ -35,6 +36,26 @@ interface ROIData {
   careerEarnings10Years: number;
   breakEvenYears: number;
   roiPercent: number;
+  durationYears?: number;
+}
+
+interface CompetitionData {
+  status: 'verified_percent' | 'verified_points' | 'range' | 'not_verified';
+  value?: number;
+  max_points?: number;
+  low?: number;
+  high?: number;
+  score: number | null;
+  note: string;
+  source?: string;
+  qualification_requirement?: string;
+  qualification_source?: string;
+}
+
+interface LocationInfo {
+  costOfLivingIndex: number;
+  sourceType: 'direct' | 'proxy' | 'us_state';
+  note: string;
 }
 
 interface University {
@@ -53,6 +74,9 @@ interface University {
   dot: string;
   chance: string;
   scoreBreakdown?: ScoreBreakdown;
+  competition?: CompetitionData;
+  locationInfo?: LocationInfo;
+  assessmentComponents?: string[];
   career?: CareerData;
   roi?: ROIData;
   whyApply?: string[];
@@ -73,6 +97,8 @@ interface ChanceResult {
   englishScore: number;
   academicScore: number;
   extraScore: number;
+  competitionScore: number | null;
+  usedRealCompetition: boolean;
   reasons: string[];
 }
 
@@ -134,7 +160,9 @@ function computeChance(uni: University, profile: Profile): ChanceResult {
   }
 
   // Academic component: university selectivity (academics score) vs user's GPA strength
-  const selectivity = uni.scoreBreakdown ? clampPct(uni.scoreBreakdown.academics) : 60;
+  const selectivity = (uni.scoreBreakdown && !uni.scoreBreakdown.academicsDataMissing)
+    ? clampPct(uni.scoreBreakdown.academics)
+    : 60; // neutral fallback — real academics data missing/corrupted for this university
   const academicScore = clampPct(100 - (selectivity - profile.gpa));
   if (selectivity - profile.gpa > 15) {
     reasons.push('Вуз академически селективный — при вашей успеваемости конкурс будет высоким.');
@@ -154,7 +182,27 @@ function computeChance(uni: University, profile: Profile): ChanceResult {
     reasons.push('Вузу обычно требуется подготовительная программа Foundation при неполном соответствии профилю.');
   }
 
-  const score = Math.round(englishScore * 0.35 + academicScore * 0.45 + extraScore * 0.20);
+  // Real, verified competition data (acceptance rate / CAO points / range) — when we have it,
+  // it should carry real weight instead of being ignored in favour of the generic academics proxy.
+  const realCompetitionScore = uni.competition?.score ?? null;
+  const usedRealCompetition = realCompetitionScore !== null;
+
+  let score: number;
+  if (usedRealCompetition) {
+    score = Math.round(
+      englishScore * 0.25 +
+      academicScore * 0.25 +
+      extraScore * 0.15 +
+      (realCompetitionScore as number) * 0.35
+    );
+    reasons.push(`Учтён реальный конкурс поступления в этот вуз (не общая оценка селективности): ${uni.competition!.note}`);
+  } else {
+    score = Math.round(englishScore * 0.35 + academicScore * 0.45 + extraScore * 0.20);
+  }
+
+  if (uni.competition?.qualification_requirement) {
+    reasons.push(`Дополнительное требование: ${uni.competition.qualification_requirement}`);
+  }
 
   let label: string;
   let dot: 'green' | 'yellow' | 'red';
@@ -169,7 +217,7 @@ function computeChance(uni: University, profile: Profile): ChanceResult {
     dot = 'red';
   }
 
-  return { score, label, dot, englishScore, academicScore, extraScore, reasons };
+  return { score, label, dot, englishScore, academicScore, extraScore, competitionScore: realCompetitionScore, usedRealCompetition, reasons };
 }
 
 // ===== Admission roadmap generator =====
@@ -536,11 +584,11 @@ export default function Home() {
                   <option value="ielts">По IELTS</option>
                   <option value="name">По названию</option>
                 </select>
-                <InfoTip text="«Оценка вуза» = академика 30% + бюджет 25% + карьера 25% + локация 10% + английский 10%. «Шанс поступления» — персональный расчёт по вашему IELTS, успеваемости и доп. факторам. Оба — ориентир для сравнения, не официальный рейтинг." />
+                <InfoTip text="«Оценка вуза» = академика 25% + конкурс поступления 20% + карьера 20% + бюджет 20% + локация 10% + английский 5% (для вузов, где конкурс не проверен — эти 20% пропорционально перераспределены на остальные 5). «Шанс поступления» — отдельный персональный расчёт по вашему IELTS, успеваемости и доп. факторам; там, где есть реальные данные о конкурсе, они тоже учтены с весом 35%." />
               </div>
               <div className="view-toggle">
-                <button className={viewMode === 'cards' ? 'active' : ''} onClick={() => setViewMode('cards')}>▦ Карточки</button>
-                <button className={viewMode === 'table' ? 'active' : ''} onClick={() => setViewMode('table')}>☰ Таблица</button>
+                <button aria-label="Вид: карточки" className={viewMode === 'cards' ? 'active' : ''} onClick={() => setViewMode('cards')}>▦ Карточки</button>
+                <button aria-label="Вид: таблица" className={viewMode === 'table' ? 'active' : ''} onClick={() => setViewMode('table')}>☰ Таблица</button>
               </div>
             </div>
 
@@ -697,6 +745,31 @@ function ChancePill({ chance }: { chance: ChanceResult }) {
   );
 }
 
+function formatFormulaText(components?: string[]): string {
+  const BASE_WEIGHTS: Record<string, [string, number]> = {
+    academics: ['академика', 0.25],
+    competition: ['конкурс поступления', 0.20],
+    career: ['карьера', 0.20],
+    affordability: ['бюджет', 0.20],
+    location: ['локация', 0.10],
+    english: ['английский', 0.05],
+  };
+  if (!components || components.length === 0) return 'Формула недоступна.';
+  const totalWeight = components.reduce((sum, k) => sum + (BASE_WEIGHTS[k]?.[1] ?? 0), 0);
+  const parts = components
+    .sort((a, b) => (BASE_WEIGHTS[b]?.[1] ?? 0) - (BASE_WEIGHTS[a]?.[1] ?? 0))
+    .map((k) => {
+      const [label, w] = BASE_WEIGHTS[k] ?? [k, 0];
+      const pct = Math.round((w / totalWeight) * 10000) / 100;
+      return `${label} ${pct}%`;
+    });
+  const missing = Object.keys(BASE_WEIGHTS).filter((k) => !components.includes(k));
+  const missingNote = missing.length > 0
+    ? ` Недоступные для этого вуза параметры (${missing.map((k) => BASE_WEIGHTS[k][0]).join(', ')}) исключены, их веса пропорционально перераспределены на остальные.`
+    : '';
+  return `Формула для этого вуза: ${parts.join(' + ')}.${missingNote}`;
+}
+
 function UniCard({
   uni,
   chance,
@@ -718,17 +791,24 @@ function UniCard({
           <div className="uni-card-name">{uni.name}</div>
           <div className="uni-card-program">{uni.program}</div>
         </div>
-        <span className={`dot dot-${uni.dot}`}></span>
+        <span className={`dot dot-${uni.dot}`} role="img" aria-label={uni.dot === 'green' ? 'Высокая оценка' : uni.dot === 'yellow' ? 'Средняя оценка' : 'Низкая оценка'} title={uni.dot === 'green' ? 'Высокая оценка' : uni.dot === 'yellow' ? 'Средняя оценка' : 'Низкая оценка'}></span>
       </div>
 
       <span className={`score-badge ${uni.dot}`}>{uni.assessment} / 100</span>
+      <CompetitionBadge competition={uni.competition} />
 
       {uni.scoreBreakdown && (
         <div className="score-breakdown">
           <div className="breakdown-item">
             <span>Учёба</span>
-            <div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.academics)}%` }}></div></div>
-            <span>{clampPct(uni.scoreBreakdown.academics)}</span>
+            {uni.scoreBreakdown.academicsDataMissing ? (
+              <span className="breakdown-no-data">нет данных — не учтено в оценке</span>
+            ) : (
+              <>
+                <div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.academics)}%` }}></div></div>
+                <span>{clampPct(uni.scoreBreakdown.academics)}</span>
+              </>
+            )}
           </div>
           <div className="breakdown-item">
             <span>Карьера</span>
@@ -1215,8 +1295,11 @@ function GuideModal({ onClose }: { onClose: () => void }) {
 
         <div className="modal-section">
           <h3>Как читать карточку вуза</h3>
-          <p><strong>Оценка вуза (X/100)</strong> — прозрачная взвешенная сумма: академическая репутация 30%, бюджет 25%, карьерные перспективы 25%, локация 10%, уровень английского 10%. Не является официальным рейтингом — ориентир для сравнения вузов внутри базы. Компонент «доступность поступления» в текущих данных не различается по вузам (колеблется в узком диапазоне независимо от реальной селективности), поэтому исключён из формулы и из отображаемой разбивки, пока не появятся более точные данные.</p>
-          <p><strong>Шанс поступления при вашем профиле</strong> — персональный расчёт: сравнивает ваш IELTS, успеваемость и отмеченные доп. факторы с требованиями и селективностью вуза. Пересчитывается сразу при изменении профиля вверху страницы.</p>
+          <p><strong>Оценка вуза (X/100)</strong> — прозрачная взвешенная сумма шести параметров: академическая репутация 25%, конкурс поступления 20%, карьерные перспективы 20%, бюджет 20%, локация 10%, уровень английского 5%. Не является официальным рейтингом — ориентир для сравнения вузов внутри базы.</p>
+          <p><strong>Конкурс поступления</strong> — реально проверенные данные есть не по всем 67 вузам (см. бейдж «Конкурс: не проверен» на карточке). Где данных нет, эти 20% веса пропорционально перераспределены на остальные пять параметров — формула у таких вузов становится: академика 31,25%, карьера 25%, бюджет 25%, локация 12,5%, английский 6,25%. Ранее использовавшийся компонент «доступность поступления» удалён — в исходных данных он не различался по вузам (колебался в узком диапазоне независимо от реальной селективности) и заменён реальным конкурсом там, где источник найден.</p>
+          <p><strong>Карьера</strong> — раньше это было условное поле с двумя значениями без объяснимой логики. Теперь балл считается напрямую из реальной зарплаты выпускника через 10 лет (после приведения $ к €), нормализованной по всей базе — самая высокая зарплата в базе даёт 100, самая низкая — 0.</p>
+          <p><strong>Локация</strong> — раньше два необъяснимых значения. Теперь это индекс стоимости жизни в городе вуза (Numbeo, где Нью-Йорк = 100) — чем дешевле город, тем выше балл. Для городов без прямых данных Numbeo использован показатель ближайшего сопоставимого города (это явно указано в карточке вуза), для американских — пересчитанный индекс штата. Это приближение, а не точная цифра по городу.</p>
+          <p><strong>Шанс поступления при вашем профиле</strong> — персональный расчёт: сравнивает ваш IELTS, успеваемость и отмеченные доп. факторы с требованиями и селективностью вуза. Там, где по вузу есть реально проверенные данные о конкурсе (см. раздел «Конкурс поступления» на карточке), они учитываются напрямую с весом 35% — вместо общей академической селективности как прокси. Пересчитывается сразу при изменении профиля вверху страницы. Это эвристическая модель для сравнения вариантов между собой, а не научный прогноз и не гарантия поступления — веса и формула подобраны вручную, а не выведены из статистики реальных поступлений.</p>
         </div>
 
         <div className="modal-section">
@@ -1295,7 +1378,16 @@ function DetailModal({
             <div className="breakdown-item"><span>Английский</span><div className="bar"><div style={{ width: `${chance.englishScore}%` }}></div></div><span>{Math.round(chance.englishScore)}</span></div>
             <div className="breakdown-item"><span>Успеваемость</span><div className="bar"><div style={{ width: `${chance.academicScore}%` }}></div></div><span>{Math.round(chance.academicScore)}</span></div>
             <div className="breakdown-item"><span>Доп. факторы</span><div className="bar"><div style={{ width: `${chance.extraScore}%` }}></div></div><span>{Math.round(chance.extraScore)}</span></div>
+            {chance.usedRealCompetition && chance.competitionScore !== null && (
+              <div className="breakdown-item"><span>Реальный конкурс</span><div className="bar"><div style={{ width: `${chance.competitionScore}%` }}></div></div><span>{Math.round(chance.competitionScore)}</span></div>
+            )}
           </div>
+          <p className="modal-disclaimer">
+            {chance.usedRealCompetition
+              ? 'Формула: английский 25% + успеваемость 25% + доп. факторы 15% + реальный конкурс поступления 35%.'
+              : 'Формула: английский 35% + успеваемость 45% + доп. факторы 20% (реальных данных о конкурсе для этого вуза нет — используется общая академическая селективность как прокси).'}
+            {' '}Это эвристическая модель для сравнения вариантов, не гарантия и не официальный прогноз поступления.
+          </p>
           <RecommendationBlock uni={uni} chance={chance} profile={profile} />
         </div>
 
@@ -1303,15 +1395,38 @@ function DetailModal({
           <div className="modal-section">
             <h3>Из чего складывается оценка вуза</h3>
             <div className="score-breakdown">
-              <div className="breakdown-item"><span>Учёба</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.academics)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.academics)}</span></div>
+              {uni.scoreBreakdown.academicsDataMissing ? (
+                <div className="breakdown-item"><span>Учёба</span><span className="breakdown-no-data">нет данных — не учтено в оценке</span></div>
+              ) : (
+                <div className="breakdown-item"><span>Учёба</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.academics)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.academics)}</span></div>
+              )}
+              {uni.competition && uni.competition.score !== null && (
+                <div className="breakdown-item"><span>Конкурс</span><div className="bar"><div style={{ width: `${clampPct(uni.competition.score)}%` }}></div></div><span>{clampPct(uni.competition.score)}</span></div>
+              )}
               <div className="breakdown-item"><span>Английский</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.english)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.english)}</span></div>
               <div className="breakdown-item"><span>Бюджет</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.affordability)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.affordability)}</span></div>
               <div className="breakdown-item"><span>Локация</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.location)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.location)}</span></div>
               <div className="breakdown-item"><span>Карьера</span><div className="bar"><div style={{ width: `${clampPct(uni.scoreBreakdown.career)}%` }}></div></div><span>{clampPct(uni.scoreBreakdown.career)}</span></div>
             </div>
+
+            {uni.competition && (
+              <CompetitionBlock competition={uni.competition} />
+            )}
+
+            {uni.locationInfo && (
+              <div className="competition-block">
+                <p>
+                  Стоимость жизни в городе: индекс <strong>{uni.locationInfo.costOfLivingIndex}</strong> (Numbeo, Нью-Йорк=100).
+                  {uni.locationInfo.sourceType !== 'direct' && (
+                    <span className="modal-disclaimer"> {uni.locationInfo.note}</span>
+                  )}
+                </p>
+              </div>
+            )}
+
             <p className="modal-disclaimer">
-              Формула: академика 30% + бюджет 25% + карьера 25% + локация 10% + английский 10%.
-              Компонент «доступность поступления» исключён из расчёта — в текущих данных он не различается по вузам и не несёт полезного сигнала.
+              {formatFormulaText(uni.assessmentComponents)}
+              {' '}«Доступность поступления» из предыдущей версии исключена — заменена реальным конкурсом там, где данные найдены.
             </p>
           </div>
         )}
@@ -1354,12 +1469,15 @@ function DetailModal({
         {uni.roi && (
           <div className="modal-section roi-info">
             <h3>Расчёт окупаемости</h3>
-            <p>Полная стоимость обучения: <strong>{formatMoney(uni.roi.totalCost, uni.budget_currency)}</strong></p>
+            <p>Полная стоимость обучения: <strong>{formatMoney(uni.roi.totalCost, uni.budget_currency)}</strong>{uni.roi.durationYears && ` (${uni.roi.durationYears} года по максимальной ставке бюджета/год)`}</p>
             <p>Заработок за 10 лет после выпуска: <strong>{formatMoney(uni.roi.careerEarnings10Years, uni.budget_currency)}</strong></p>
-            <p>ROI: <strong style={{ color: '#4caf50' }}>+{uni.roi.roiPercent}%</strong></p>
-            <p>Окупаемость: <strong>{uni.roi.breakEvenYears} года</strong> после выпуска</p>
+            <p>ROI: <strong style={{ color: uni.roi.roiPercent >= 0 ? '#4caf50' : '#f44336' }}>{uni.roi.roiPercent >= 0 ? '+' : ''}{uni.roi.roiPercent}%</strong></p>
+            <p>Окупаемость: <strong>{uni.roi.breakEvenYears != null ? `${uni.roi.breakEvenYears} года` : 'не определена'}</strong> после выпуска</p>
             <p className="modal-disclaimer">
-              Расчёт условный: не учитывает налоги, инфляцию, кредит на обучение и разброс зарплат внутри профессии.
+              Методология: стоимость = бюджет/год × стандартная длительность программы (3 года — Европа/Великобритания/Ирландия/ОАЭ, 4 года — США).
+              Заработок за 10 лет — среднее между стартовой зарплатой и зарплатой через 10 лет, умноженное на 10 (линейный рост).
+              Окупаемость — год, когда накопленный заработок при таком росте превышает стоимость обучения.
+              Условный расчёт: не учитывает налоги, инфляцию, кредит на обучение и разброс зарплат внутри профессии.
             </p>
           </div>
         )}
@@ -1407,6 +1525,42 @@ function DetailModal({
       </div>
     </div>
   );
+}
+
+function CompetitionBlock({ competition }: { competition: CompetitionData }) {
+  let statusLine: React.ReactNode = null;
+
+  if (competition.status === 'verified_percent') {
+    statusLine = <p>Конкурс поступления: <strong>~{competition.value}%</strong> принятых заявок. <span className="modal-disclaimer">{competition.source}</span></p>;
+  } else if (competition.status === 'verified_points') {
+    statusLine = <p>Конкурс поступления: проходной балл <strong>{competition.value} из {competition.max_points}</strong>. <span className="modal-disclaimer">{competition.source}</span></p>;
+  } else if (competition.status === 'range') {
+    statusLine = <p>Конкурс поступления: официальных данных нет, независимые оценки <strong>{competition.low}–{competition.high}%</strong>. <span className="modal-disclaimer">{competition.source}</span></p>;
+  } else {
+    statusLine = <p className="competition-not-verified">⚠ Конкурс поступления для этого вуза не проверялся — оценка построена без этого параметра.</p>;
+  }
+
+  return (
+    <div className="competition-block">
+      {statusLine}
+      {competition.qualification_requirement && (
+        <p className="competition-requirement">
+          <strong>⚠ Требование для граждан РФ:</strong> {competition.qualification_requirement}
+          {' '}<span className="modal-disclaimer">{competition.qualification_source}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+function CompetitionBadge({ competition }: { competition?: CompetitionData }) {
+  if (!competition || competition.status === 'not_verified') {
+    return <span className="competition-badge unverified" title="Конкурс поступления не проверен">Конкурс: не проверен</span>;
+  }
+  if (competition.qualification_requirement) {
+    return <span className="competition-badge requirement" title="Есть особое требование для не-ЕС абитуриентов">⚠ Есть спец. требование</span>;
+  }
+  return null;
 }
 
 function RecommendationBlock({ uni, chance, profile }: { uni: University; chance: ChanceResult; profile: Profile }) {
