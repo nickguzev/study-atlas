@@ -72,7 +72,6 @@ interface University {
   qs: number | null;
   assessment: number;
   dot: string;
-  chance: string;
   scoreBreakdown?: ScoreBreakdown;
   competition?: CompetitionData;
   locationInfo?: LocationInfo;
